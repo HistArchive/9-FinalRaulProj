@@ -3,12 +3,17 @@
 #include <IRremote.hpp>
 #include <LiquidCrystal_I2C.h>
 #include <Servo.h>
+#include <Arduino.h>
+#include "DHT_Async.h"
 
 // I2C address 0x27 is used for the LCD, with dimensions 20x4
 LiquidCrystal_I2C lcd(0x27, 20, 4);  
 
 // Temperatura
-const int pin_temp = 8;
+#define DHT_SENSOR_PIN 10
+#define DHT_SENSOR_TYPE DHT_TYPE_11
+DHT_Async dht_sensor(DHT_SENSOR_PIN, DHT_SENSOR_TYPE);
+float temperature, humidity;
 
 // Servos
 Servo lateralServo;
@@ -31,8 +36,8 @@ unsigned long lastSuperiorUpdateTime = 0;
 unsigned long updateInterval = 20; // Update interval in milliseconds
 
 // Pines de conexión
-const int irRec = 2; // Pin del receptor IR
-const int salida = 3; // Pin de abanico ???
+const int salida = 2; // Pin de abanico ???
+const int irRec = 3; // Pin del receptor IR
 const int fan = 7; // Actual abanico pin
 const int fanIncrease = 25;
 int fanSpeed = 0;
@@ -62,14 +67,27 @@ void setup() {
   superiorServo.attach(superiorServoPin);
   lcd.init();
   lcd.backlight();
-  lcd.setCursor(1, 0);
-  Serial.begin(9600);
+  lcd.setCursor(0, 0);
+  Serial.begin(115200);
   lcd.print("Waiting...");
   Serial.println("Waiting...");
   IrReceiver.begin(irRec);  // Inicializa el receptor IR
 }
 
 void loop() {
+  
+  /* Measure temperature and humidity.  If the functions returns
+    true, then a measurement is available. */
+  if (measure_environment(&temperature, &humidity)) {
+    Serial.print("T = ");
+    Serial.print(temperature, 1);
+    Serial.print(" deg. C");
+    Serial.println();
+    lcd.setCursor(5, 3);
+    lcd.print(temperature);
+    lcd.setCursor(10, 3);
+    lcd.print("C");
+  }
   if (IrReceiver.decode()) {
     unsigned long receivedCode = IrReceiver.decodedIRData.decodedRawData;
     Serial.print("Received code: 0x");
@@ -125,8 +143,6 @@ void loop() {
       } else {
         Serial.println("Duplicate code received, ignoring.");
       }
-    } else {
-      Serial.println("Debounce delay not met, ignoring.");
     }
 
     IrReceiver.resume();
@@ -134,7 +150,7 @@ void loop() {
 
   if (cmd != "") {
     Serial.println(cmd);
-    lcd.clear(); 
+    //lcd.clear(); 
     lcd.setCursor(0, 0);
     lcd.print(cmd);
     cmd = "";
@@ -169,4 +185,24 @@ void loop() {
 
 void setSpeed(byte ocrb){
   OCR2B=ocrb;
+}
+
+static bool measure_environment(float *temperature, float *humidity) {
+  static unsigned long measurement_timestamp = millis();
+  /* Measure once every four seconds. */
+  if (millis() - measurement_timestamp > 4000ul) {
+      if (dht_sensor.measure(temperature, humidity)) {
+        measurement_timestamp = millis();
+        return (true);
+      }
   }
+
+  return (false);
+}
+
+void config_fan(){
+  TCCR2A=0X23;
+  TCCR2B=0X0A;
+  OCR2A=100;
+  OCR2B=0;
+}

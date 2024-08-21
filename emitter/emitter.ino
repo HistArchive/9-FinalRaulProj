@@ -1,6 +1,6 @@
 #include <IRremote.hpp>
 
-const int irSendPin = 2;   // Pin del emisor IR
+const int irSendPin = 3;   // Pin del emisor IR
 
 // Button pins
 const int turboBtnPin = 4;
@@ -61,7 +61,7 @@ void loop() {
   // Envío de códigos IR cuando se presionan los botones
   handleButtonPress(onOffBtnPin, codeON, isOn ? "Turned off" : "Turned on", &isOn);
   if (isOn) {
-    handleButtonPress(turboBtnPin, codePlusUltra, "TURBO ENGAGED");
+    handleButtonPress(turboBtnPin, codePlusUltra, "Plus Ultra!");
     if (digitalRead(turboBtnPin) == LOW) {
       speed = 5;
       Serial.println("Intensidad: 5");
