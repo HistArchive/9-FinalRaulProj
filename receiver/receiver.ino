@@ -36,9 +36,9 @@ unsigned long lastSuperiorUpdateTime = 0;
 unsigned long updateInterval = 20; // Update interval in milliseconds
 
 // Pines de conexión
-const int salida = 2; // Pin de abanico ???
+const int salida = 2; // Pin de abanico para decirle que existe
 const int irRec = 3; // Pin del receptor IR
-const int fan = 7; // Actual abanico pin
+const int fan = 7; // Actual abanico pin: Relay
 const int fanIncrease = 25;
 int fanSpeed = 0;
 
@@ -47,7 +47,7 @@ bool isOn = false;
 const unsigned long codeON = 0xFFFF00;
 
 const unsigned long codeMoreFan = 0xFFFF10;
-const unsigned long codeLessFan = 0xFFFF11;
+const unsigned long codeLessFan = 0x88FFFF00;
 const unsigned long codePlusUltra = 0xFFFF1F;
 int speed = 1; // Initialize speed to 1
 
@@ -70,6 +70,8 @@ void setup() {
   lcd.setCursor(0, 0);
   Serial.begin(115200);
   lcd.print("Waiting...");
+  lcd.setCursor(0, 3);
+  lcd.print("Temp: ");
   Serial.println("Waiting...");
   IrReceiver.begin(irRec);  // Inicializa el receptor IR
 }
@@ -83,14 +85,13 @@ void loop() {
     Serial.print(temperature, 1);
     Serial.print(" deg. C");
     Serial.println();
-    lcd.setCursor(5, 3);
+    
     lcd.print(temperature);
-    lcd.setCursor(10, 3);
+    lcd.setCursor(11, 3);
     lcd.print("C");
   }
   if (IrReceiver.decode()) {
     unsigned long receivedCode = IrReceiver.decodedIRData.decodedRawData;
-    Serial.print("Received code: 0x");
     Serial.println(receivedCode, HEX);
     unsigned long currentTime = millis();
 
@@ -130,18 +131,18 @@ void loop() {
               break;
             case codeSwingLateral:
               swingLateralEnabled = !swingLateralEnabled;
-              cmd = String("Swing lado: ") + String(swingLateralEnabled ? "enabled" : "disabled");
+              cmd = String("Swing lado: ") + String(swingLateralEnabled ? "ON" : "OFF");
+              correrSwingLateral(swingLateralEnabled);
               break;
             case codeSwingArriba:
               swingArribaEnabled = !swingArribaEnabled;
-              cmd = String("Swing arriba: ") + String(swingArribaEnabled ? "enabled" : "disabled");
+              cmd = String("Swing arriba: ") + String(swingArribaEnabled ? "ON" : "OFF");
+              correrSwingArriba(swingArribaEnabled);
               break;
             default:
               break;
           }
         }
-      } else {
-        Serial.println("Duplicate code received, ignoring.");
       }
     }
 
@@ -155,42 +156,44 @@ void loop() {
     lcd.print(cmd);
     cmd = "";
   }
-
-  // Non-blocking lateral servo movement
-  if (swingLateralEnabled) {
-    unsigned long currentTime = millis();
-    if (currentTime - lastLateralUpdateTime >= updateInterval) {
-      lastLateralUpdateTime = currentTime;
-      lateralServoPos += lateralServoSpeed;
-      if (lateralServoPos >= 180 || lateralServoPos <= 0) {
-        lateralServoSpeed = -lateralServoSpeed; // Reverse direction
-      }
-      lateralServo.write(lateralServoPos);
-    }
-  }
-
-  // Non-blocking superior servo movement
-  if (swingArribaEnabled) {
-    unsigned long currentTime = millis();
-    if (currentTime - lastSuperiorUpdateTime >= updateInterval) {
-      lastSuperiorUpdateTime = currentTime;
-      superiorServoPos += superiorServoSpeed;
-      if (superiorServoPos >= 180 || superiorServoPos <= 0) {
-        superiorServoSpeed = -superiorServoSpeed; // Reverse direction
-      }
-      superiorServo.write(superiorServoPos);
-    }
-  }
 }
 
 void setSpeed(byte ocrb){
   OCR2B=ocrb;
 }
 
+
+  // Non-blocking lateral servo movement
+void correrSwingLateral(bool correr) {
+  unsigned long currentTime = millis();
+  if (currentTime - lastLateralUpdateTime >= updateInterval && correr) {
+    lastLateralUpdateTime = currentTime;
+    lateralServoPos += lateralServoSpeed;
+    if (lateralServoPos >= 180 || lateralServoPos <= 0) {
+      lateralServoSpeed = -lateralServoSpeed; // Reverse direction
+    }
+    lateralServo.write(lateralServoPos);
+  }
+}
+
+  // Non-blocking superior servo movement
+void correrSwingArriba(bool correr) {
+  unsigned long currentTime = millis();
+  if (currentTime - lastSuperiorUpdateTime >= updateInterval && correr) {
+    lastSuperiorUpdateTime = currentTime;
+    superiorServoPos += superiorServoSpeed;
+    if (superiorServoPos >= 180 || superiorServoPos <= 0) {
+      superiorServoSpeed = -superiorServoSpeed; // Reverse direction
+    }
+    superiorServo.write(superiorServoPos);
+  }
+}
+
+
 static bool measure_environment(float *temperature, float *humidity) {
   static unsigned long measurement_timestamp = millis();
   /* Measure once every four seconds. */
-  if (millis() - measurement_timestamp > 4000ul) {
+  if (millis() - measurement_timestamp > 1000ul) {
       if (dht_sensor.measure(temperature, humidity)) {
         measurement_timestamp = millis();
         return (true);

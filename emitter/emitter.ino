@@ -3,12 +3,12 @@
 const int irSendPin = 3;   // Pin del emisor IR
 
 // Button pins
-const int turboBtnPin = 4;
-const int swingLadoBtnPin = 5;
-const int increaseIntensityBtnPin = 6;
-const int swingArribaBtnPin = 7;
-const int onOffBtnPin = 8;
-const int decreaseIntensityBtnPin = 9;
+const int onOffBtnPin = 4;
+const int increaseIntensityBtnPin = 5;
+const int decreaseIntensityBtnPin = 6;
+const int swingLadoBtnPin = 7;
+const int swingArribaBtnPin = 8;
+const int turboBtnPin = 9;
 
 const int numBtn = 6;
 int btn[numBtn] = {turboBtnPin, swingLadoBtnPin, increaseIntensityBtnPin, swingArribaBtnPin, onOffBtnPin, decreaseIntensityBtnPin};
@@ -38,6 +38,8 @@ void setup() {
 
 void handleButtonPress(int pin, unsigned long code, const char* message, bool* toggle = nullptr) {
   if (digitalRead(pin) == LOW) {
+    Serial.print("Button pressed: ");
+    Serial.println(pin);
     if (toggle) {
       *toggle = !*toggle;
       Serial.println(String(message) + (*toggle ? " enabled" : " disabled"));
@@ -61,7 +63,6 @@ void loop() {
   // Envío de códigos IR cuando se presionan los botones
   handleButtonPress(onOffBtnPin, codeON, isOn ? "Turned off" : "Turned on", &isOn);
   if (isOn) {
-    handleButtonPress(turboBtnPin, codePlusUltra, "Plus Ultra!");
     if (digitalRead(turboBtnPin) == LOW) {
       speed = 5;
       Serial.println("Intensidad: 5");
